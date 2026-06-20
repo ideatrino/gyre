@@ -1,0 +1,326 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>GYRE</title>
+<style>
+  :root{
+    --field:#0b1020; --field2:#0e1428; --panel:#141a2e; --panel-2:#1b2237;
+    --line:#2c3450; --ink:#e8ecf6; --muted:#8b93ad;
+    --spoke:#f5a524; --spoke-dim:#7a5a1c; --gyre:#2dd4bf; --gyre-dim:#1d5e57;
+    --win:#f472b6; --focus:#9db4ff;
+    --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+    --sans:system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;background:radial-gradient(1200px 800px at 50% -10%, #11183a 0%, var(--field) 55%, #070b16 100%);color:var(--ink);font-family:var(--sans)}
+  .wrap{max-width:960px;margin:0 auto;padding:28px 20px 56px}
+  header{display:flex;align-items:baseline;gap:16px;flex-wrap:wrap;border-bottom:1px solid var(--line);padding-bottom:14px}
+  .mark{font-size:34px;font-weight:800;letter-spacing:.28em;margin:0;text-indent:.28em}
+  .eyebrow{font-family:var(--mono);font-size:11px;letter-spacing:.22em;text-transform:uppercase;color:var(--muted)}
+  .tag{color:var(--muted);font-size:14px;margin:6px 0 0}
+  main{display:grid;grid-template-columns:1fr;gap:22px;margin-top:22px}
+  @media(min-width:760px){main{grid-template-columns:minmax(0,1fr) 268px}}
+  .boardcard{background:linear-gradient(180deg,var(--panel) 0%,var(--field2) 100%);border:1px solid var(--line);border-radius:18px;padding:14px;display:flex;align-items:center;justify-content:center;min-height:340px}
+  canvas{width:100%;height:auto;display:block;touch-action:manipulation}
+  aside{display:flex;flex-direction:column;gap:16px}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px}
+  .status{font-family:var(--mono);font-size:13px;line-height:1.5}
+  .turn-chip{display:inline-flex;align-items:center;gap:8px;font-weight:700;font-size:15px;font-family:var(--sans)}
+  .dot{width:13px;height:13px;border-radius:50%;display:inline-block}
+  .dot.s{background:var(--spoke)} .dot.g{background:var(--gyre)}
+  .legend{display:flex;flex-direction:column;gap:10px;font-size:13px}
+  .legend .row{display:flex;gap:10px;align-items:flex-start}
+  .legend .row b{font-weight:700}
+  .legend small{color:var(--muted);display:block}
+  .controls label{font-family:var(--mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);display:block;margin:0 0 6px}
+  select,button{font-family:var(--sans);font-size:14px}
+  select{width:100%;background:var(--panel-2);color:var(--ink);border:1px solid var(--line);border-radius:9px;padding:9px 10px;margin-bottom:12px}
+  .btn{appearance:none;border:1px solid var(--line);background:var(--panel-2);color:var(--ink);border-radius:9px;padding:10px 12px;cursor:pointer;width:100%;font-weight:600;transition:border-color .15s,transform .05s}
+  .btn:hover{border-color:var(--focus)} .btn:active{transform:translateY(1px)}
+  .btn.primary{background:linear-gradient(180deg,#26314f,#1a2238);border-color:#3a4f7a}
+  .btn-row{display:flex;gap:10px}
+  .swap{display:none;background:linear-gradient(180deg,#2a2140,#1a1530);border:1px solid #4a3a6a}
+  .swap.show{display:block}
+  .swap h3{margin:0 0 6px;font-size:14px} .swap p{margin:0 0 12px;color:var(--muted);font-size:12.5px;line-height:1.45}
+  .banner{display:none;border-radius:12px;padding:13px 14px;font-weight:700;font-size:15px;border:1px solid}
+  .banner.show{display:block}
+  .banner.s{background:rgba(245,165,36,.12);border-color:var(--spoke);color:#ffd587}
+  .banner.g{background:rgba(45,212,191,.12);border-color:var(--gyre);color:#9af0e4}
+  .foot{margin-top:30px;color:var(--muted);font-size:12px;font-family:var(--mono);text-align:center;letter-spacing:.04em}
+  a{color:var(--focus)}
+  :focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+  @media(prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1 class="mark">GYRE</h1>
+    <div>
+      <div class="eyebrow">a draw-proof connection game</div>
+      <p class="tag">Bridge the ring, or loop around the hole. One of you always wins.</p>
+    </div>
+  </header>
+
+  <main>
+    <section class="boardcard"><canvas id="board" width="640" height="640" aria-label="GYRE board"></canvas></section>
+
+    <aside>
+      <div class="card">
+        <div class="status" id="status">Loading…</div>
+      </div>
+
+      <div class="card swap" id="swapCard">
+        <h3>Second player decides</h3>
+        <p>Player&nbsp;1 placed the opening Spoke stone. Keep your role, or swap to take that stone and become Spoke yourself.</p>
+        <div class="btn-row">
+          <button class="btn" id="keepBtn">Keep (be Gyre)</button>
+          <button class="btn" id="swapBtn">Swap (be Spoke)</button>
+        </div>
+      </div>
+
+      <div class="card legend">
+        <div class="row"><span class="dot s"></span><div><b>Spoke</b><small>Wins by joining inner rim to outer rim.</small></div></div>
+        <div class="row"><span class="dot g"></span><div><b>Gyre</b><small>Wins by encircling the hole.</small></div></div>
+      </div>
+
+      <div class="card controls">
+        <label for="size">Board</label>
+        <select id="size">
+          <option value="5,10">5 × 10 — quick</option>
+          <option value="7,14" selected>7 × 14 — standard</option>
+          <option value="9,18">9 × 18 — deep</option>
+        </select>
+        <label for="mode">Opponent</label>
+        <select id="mode">
+          <option value="hotseat" selected>2 players (same screen)</option>
+          <option value="ai">vs computer (casual)</option>
+        </select>
+        <button class="btn primary" id="newBtn">New game</button>
+      </div>
+
+      <div class="banner" id="banner"></div>
+    </aside>
+  </main>
+
+  <p class="foot">GYRE © 2026 Ideatrino — All Rights Reserved</p>
+</div>
+
+<script src="../src/gyre-engine.js"></script>
+<script>
+(function () {
+  "use strict";
+  var GY = window.GYRE;
+  var canvas = document.getElementById('board');
+  var ctx = canvas.getContext('2d');
+  var statusEl = document.getElementById('status');
+  var bannerEl = document.getElementById('banner');
+  var swapCard = document.getElementById('swapCard');
+
+  var state, layout, hover = null, mode = 'hotseat';
+  var AI_PLAYER = 2;
+
+  function startGame() {
+    var sz = document.getElementById('size').value.split(',');
+    mode = document.getElementById('mode').value;
+    state = GY.createGame(parseInt(sz[0], 10), parseInt(sz[1], 10));
+    hover = null;
+    bannerEl.className = 'banner';
+    computeLayout();
+    render();
+    updateStatus();
+  }
+
+  // ---- geometry: place each cell as a node at a polar position ------------
+  function computeLayout() {
+    var R = state.R, C = state.C;
+    var size = canvas.clientWidth || 640;
+    var dpr = window.devicePixelRatio || 1;
+    canvas.width = size * dpr; canvas.height = size * dpr;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    var cx = size / 2, cy = size / 2;
+    var pad = size * 0.06;
+    var boardR = size / 2 - pad;
+    var holeR = boardR * 0.26;
+    var nodes = [];
+    for (var r = 0; r < R; r++) {
+      var rad = holeR + (r + 0.5) / R * (boardR - holeR);
+      for (var a = 0; a < C; a++) {
+        var theta = ((a + 0.5 * (r % 2)) / C) * Math.PI * 2 - Math.PI / 2;
+        nodes.push({ r: r, a: a, x: cx + rad * Math.cos(theta), y: cy + rad * Math.sin(theta) });
+      }
+    }
+    var nodeR = Math.max(6, Math.min(16, (boardR - holeR) / R * 0.42));
+    layout = { cx: cx, cy: cy, size: size, boardR: boardR, holeR: holeR, nodes: nodes, nodeR: nodeR };
+  }
+
+  function nodeAt(r, a) { return layout.nodes[r * state.C + a]; }
+
+  // ---- rendering ----------------------------------------------------------
+  function render() {
+    var L = layout, R = state.R, C = state.C;
+    ctx.clearRect(0, 0, L.size, L.size);
+
+    // rims
+    ctx.strokeStyle = 'rgba(157,180,255,.18)'; ctx.lineWidth = 1.5;
+    ring(L.cx, L.cy, L.holeR * 0.86); ring(L.cx, L.cy, L.boardR + L.nodeR * 0.9);
+    // seam
+    ctx.strokeStyle = 'rgba(157,180,255,.10)';
+    ctx.beginPath(); ctx.moveTo(L.cx, L.cy - L.holeR); ctx.lineTo(L.cx, L.cy - L.boardR - L.nodeR); ctx.stroke();
+
+    // adjacency edges (faithful to engine)
+    ctx.strokeStyle = 'rgba(120,134,170,.16)'; ctx.lineWidth = 1;
+    for (var r = 0; r < R; r++) for (var a = 0; a < C; a++) {
+      var p = nodeAt(r, a), nb = GY.neighbors(state, r, a);
+      for (var k = 0; k < nb.length; k++) {
+        var q = nodeAt(nb[k][0], nb[k][1]);
+        if ((nb[k][0] * C + nb[k][1]) > (r * C + a)) line(p.x, p.y, q.x, q.y);
+      }
+    }
+
+    var winSet = winLookup();
+
+    // nodes
+    for (var i = 0; i < L.nodes.length; i++) {
+      var n = L.nodes[i], v = state.cells[n.r][n.a];
+      var won = winSet && winSet[n.r * C + n.a];
+      if (v === GY.S) disc(n.x, n.y, L.nodeR, '#f5a524', won);
+      else if (v === GY.G) disc(n.x, n.y, L.nodeR, '#2dd4bf', won);
+      else {
+        ctx.beginPath(); ctx.arc(n.x, n.y, L.nodeR * 0.62, 0, 7);
+        ctx.fillStyle = 'rgba(120,134,170,.13)'; ctx.fill();
+        ctx.strokeStyle = 'rgba(120,134,170,.30)'; ctx.lineWidth = 1; ctx.stroke();
+      }
+    }
+    // hover
+    if (hover && state.cells[hover.r][hover.a] === GY.EMPTY && playable()) {
+      var h = nodeAt(hover.r, hover.a);
+      var col = state.phase === 'OPENING' ? '#f5a524' : (state.colorToMove === GY.S ? '#f5a524' : '#2dd4bf');
+      ctx.beginPath(); ctx.arc(h.x, h.y, L.nodeR * 0.92, 0, 7);
+      ctx.fillStyle = col; ctx.globalAlpha = 0.35; ctx.fill(); ctx.globalAlpha = 1;
+    }
+  }
+  function ring(x, y, rad) { ctx.beginPath(); ctx.arc(x, y, rad, 0, 7); ctx.stroke(); }
+  function line(x1, y1, x2, y2) { ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke(); }
+  function disc(x, y, rad, color, glow) {
+    if (glow) { ctx.beginPath(); ctx.arc(x, y, rad * 1.7, 0, 7); ctx.fillStyle = 'rgba(244,114,182,.28)'; ctx.fill(); }
+    ctx.beginPath(); ctx.arc(x, y, rad, 0, 7); ctx.fillStyle = color; ctx.fill();
+    ctx.lineWidth = 1.5; ctx.strokeStyle = glow ? '#f472b6' : 'rgba(8,12,24,.55)'; ctx.stroke();
+  }
+  function winLookup() {
+    if (state.phase !== 'OVER' || !state.winCells) return null;
+    var m = {}; state.winCells.forEach(function (c) { m[c[0] * state.C + c[1]] = true; }); return m;
+  }
+
+  // ---- interaction --------------------------------------------------------
+  function playable() {
+    if (state.phase !== 'OPENING' && state.phase !== 'PLAY') return false;
+    if (mode === 'ai' && state.phase === 'PLAY' && state.currentPlayer === AI_PLAYER) return false;
+    return true;
+  }
+  function pick(evt) {
+    var rect = canvas.getBoundingClientRect();
+    var t = evt.touches ? evt.touches[0] : evt;
+    var x = t.clientX - rect.left, y = t.clientY - rect.top;
+    var best = null, bd = 1e9;
+    for (var i = 0; i < layout.nodes.length; i++) {
+      var n = layout.nodes[i], dx = n.x - x, dy = n.y - y, d = dx * dx + dy * dy;
+      if (d < bd) { bd = d; best = n; }
+    }
+    return (best && bd <= (layout.nodeR * 1.8) * (layout.nodeR * 1.8)) ? best : null;
+  }
+  canvas.addEventListener('mousemove', function (e) { var n = pick(e); hover = n ? { r: n.r, a: n.a } : null; render(); });
+  canvas.addEventListener('mouseleave', function () { hover = null; render(); });
+  canvas.addEventListener('click', function (e) {
+    if (!playable()) return;
+    var n = pick(e); if (!n) return;
+    try { GY.clickCell(state, n.r, n.a); } catch (err) { return; }
+    afterMove();
+  });
+
+  function afterMove() {
+    render(); updateStatus();
+    if (state.phase === 'AWAIT_SWAP') { swapCard.classList.add('show'); return; }
+    if (state.phase === 'OVER') { showWin(); return; }
+    if (mode === 'ai' && state.phase === 'PLAY' && state.currentPlayer === AI_PLAYER) {
+      setTimeout(aiMove, 280);
+    }
+  }
+
+  document.getElementById('keepBtn').addEventListener('click', function () { resolveSwap(false); });
+  document.getElementById('swapBtn').addEventListener('click', function () { resolveSwap(true); });
+  function resolveSwap(swap) {
+    GY.chooseSwap(state, swap); swapCard.classList.remove('show');
+    render(); updateStatus();
+    if (mode === 'ai' && state.currentPlayer === AI_PLAYER) setTimeout(aiMove, 280);
+  }
+
+  // ---- casual AI: win if you can, block if you must, else heuristic -------
+  function wouldWin(color, r, a) {
+    state.cells[r][a] = color;
+    var win = (color === GY.S) ? GY.bridgeWin(state, GY.S).win : GY.loopWin(state, GY.G).win;
+    state.cells[r][a] = GY.EMPTY;
+    return win;
+  }
+  function aiMove() {
+    if (state.phase !== 'PLAY') return;
+    var me = state.colorToMove, you = GY.other(me);
+    var moves = GY.legalMoves(state), i, m;
+    for (i = 0; i < moves.length; i++) { m = moves[i]; if (wouldWin(me, m[0], m[1])) { return commit(m); } }
+    for (i = 0; i < moves.length; i++) { m = moves[i]; if (wouldWin(you, m[0], m[1])) { return commit(m); } }
+    // heuristic: Spoke pushes toward unbridged rims; Gyre fills its busiest ring
+    var best = moves[0], bestScore = -1;
+    for (i = 0; i < moves.length; i++) {
+      m = moves[i]; var s = score(me, m[0], m[1]);
+      if (s > bestScore) { bestScore = s; best = m; }
+    }
+    commit(best);
+  }
+  function score(color, r, a) {
+    var own = 0, R = state.R, C = state.C, nb = GY.neighbors(state, r, a);
+    for (var k = 0; k < nb.length; k++) if (state.cells[nb[k][0]][nb[k][1]] === color) own++;
+    var goal = (color === GY.S)
+      ? (R - 1 - Math.abs((R - 1) / 2 - r)) * 0.6        // Spoke likes radial spread
+      : 0;
+    if (color === GY.G) { var cnt = 0; for (var x = 0; x < C; x++) if (state.cells[r][x] === GY.G) cnt++; goal = cnt; }
+    return own * 2 + goal + Math.random() * 0.5;
+  }
+  function commit(m) { GY.move(state, m[0], m[1]); afterMove(); }
+
+  // ---- status / win -------------------------------------------------------
+  function roleName(color) { return color === GY.S ? 'Spoke' : 'Gyre'; }
+  function updateStatus() {
+    var s = '';
+    if (state.phase === 'OPENING') {
+      s = 'Phase: opening\nPlayer 1 — place the opening Spoke stone anywhere.';
+    } else if (state.phase === 'AWAIT_SWAP') {
+      s = 'Phase: swap decision\nPlayer 2 chooses a role.';
+    } else if (state.phase === 'PLAY') {
+      var who = state.currentPlayer, role = roleName(state.colorToMove);
+      var whoTxt = (mode === 'ai' && who === AI_PLAYER) ? 'Computer' : ('Player ' + who);
+      s = 'Move ' + state.moveCount + '\n' + whoTxt + ' to place — ' + role + '.';
+    } else if (state.phase === 'OVER') {
+      s = 'Game over.';
+    }
+    statusEl.textContent = s;
+  }
+  function showWin() {
+    var role = roleName(state.winColor);
+    var whoTxt = (mode === 'ai' && state.winner === AI_PLAYER) ? 'Computer' : ('Player ' + state.winner);
+    bannerEl.textContent = whoTxt + ' wins as ' + role + ' — ' + (state.winType === 'bridge' ? 'bridged the ring.' : 'encircled the hole.');
+    bannerEl.className = 'banner show ' + (state.winColor === GY.S ? 's' : 'g');
+    updateStatus(); render();
+  }
+
+  document.getElementById('newBtn').addEventListener('click', startGame);
+  document.getElementById('size').addEventListener('change', startGame);
+  document.getElementById('mode').addEventListener('change', startGame);
+  window.addEventListener('resize', function () { if (state) { computeLayout(); render(); } });
+
+  startGame();
+})();
+</script>
+</body>
+</html>

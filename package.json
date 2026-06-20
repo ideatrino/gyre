@@ -1,0 +1,15 @@
+{
+  "name": "gyre",
+  "version": "1.0.0",
+  "private": true,
+  "description": "GYRE — a draw-proof two-player connection game on a hexagonal ring. Bridge across or loop around; draws are mathematically impossible.",
+  "author": "Ideatrino <ideatrino@proton.me>",
+  "license": "UNLICENSED",
+  "keywords": ["board-game", "abstract-strategy", "connection-game", "hex", "topology", "game-theory"],
+  "main": "src/gyre-engine.js",
+  "scripts": {
+    "test": "node test/gyre.test.js",
+    "play": "echo \"Open web/index.html in a browser to play.\""
+  },
+  "engines": { "node": ">=16" }
+}
